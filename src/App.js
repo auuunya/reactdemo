@@ -1,65 +1,33 @@
-import React from 'react';
+import React, { Component } from 'react';
 import './App.css';
 import './block.css';
 
-const DEFAULT_QUERY = 'redux';
-const DEFAULT_HPP = '100';
-const PATH_BASE = 'https://hn.algolia.com/api/v1';
-const PATH_SEARCH = '/search';
-const PARAM_SEARCH = 'query=';
-const PARAM_PAGE = 'page=';
-const PARAM_HPP = 'hitsPerPage=';
 
+import Button from './components/Button/index';
+import Search from './components/Search/index';
+import Table from './components/Table/index';
+import { DEFAULT_QUERY,DEFAULT_HPP,PATH_BASE,PATH_SEARCH,PARAM_SEARCH,PARAM_PAGE,PARAM_HPP } from './constants/index.js';
 
-const largeColumn = {
-    width: '40%',
-};
+const Loading = () => <div>Loading ...</div>
+const withFoo = (Component) => (props) => <Component { ...props} />
+const withLoading = (Component) => ({ isLoading, ...rest }) => 
+    isLoading
+    ? <Loading />
+    : <Component { ...rest} />
 
-const midColumn = {
-    width: '30%',
-};
+const withInit = (Component) => (props) => <Component name="withInitName" { ...props} />
 
-const smallColumn = {
-    width: '10%',
-};
-function Button(props){
-    const { onClick, className = '', children } = props;
-    return (
-        <button onClick={onClick} className={className} type="button">
-            { children }
-        </button>
-    )
+class Hello extends React.Component{
+    componentDidMount(){
+        console.log("111", this.props)
+    }
+    render(){
+        return(
+            <div>{ this.props.name }</div>
+        )
+    }
 }
-
-function Search(props){
-    const { onSearchChange, onSearchSubmit, searchTerm, children } = props
-    return (
-        <form>
-            <input type="text" 
-                onChange={onSearchChange}
-                value={searchTerm}
-            />
-            <button type="submit" onClick={onSearchSubmit}>{ children }</button>
-        </form>
-    )
-}
-
-function Table(props){
-    const { list, onDismiss } = props
-    return(
-        <div className="table">
-            {list.map(item => 
-                <div key={item.objectID} className="table-row">
-                    <span style={largeColumn}><a href={item.url}>{item.title}</a></span>
-                    <span style={smallColumn}>{item.points}</span>
-                    <span style={smallColumn}>{item.author}</span>
-                    <span style={midColumn}>{item.created_at}</span>
-                    <span style={smallColumn}><Button className="button-inline" onClick={() => onDismiss(item.objectID)}>Delete</Button></span>
-                </div>
-            )}
-        </div>
-    )
-}
+const InitComponent = withInit(Hello);
 class App extends React.Component {
     constructor(props){
         super(props)
@@ -69,6 +37,9 @@ class App extends React.Component {
             result: null,
             searchTerm: DEFAULT_QUERY,
             error: null,
+            isLoading: false,
+            sortKey: 'NONE',
+            isSortReverse: false,
         }
         this.setSearchTopStories = this.setSearchTopStories.bind(this)
         this.fetchSearchTopStories = this.fetchSearchTopStories.bind(this)
@@ -76,6 +47,7 @@ class App extends React.Component {
         this.onDismiss = this.onDismiss.bind(this)
         this.onSearchSubmit = this.onSearchSubmit.bind(this)
         this.needsToSearchTopStories = this.needsToSearchTopStories.bind(this)
+        this.onSort = this.onSort.bind(this)
     }
     needsToSearchTopStories(searchTerm){
         return !this.state.results[searchTerm]
@@ -84,6 +56,10 @@ class App extends React.Component {
         const { searchTerm } = this.state;
         this.setState({searchKey: searchTerm})
         this.fetchSearchTopStories(searchTerm)
+    }
+    onSort(sortKey){
+        const isSortReverse = this.state.sortKey === sortKey && !this.state.isSortReverse;
+        this.setState({sortKey, isSortReverse});
     }
     setSearchTopStories(result) {
         console.log("result:", result)
@@ -97,11 +73,13 @@ class App extends React.Component {
             results: {
                 ...results,
                 [searchKey]: {hits: updateHits, page}
-            }
+            },
+            isLoading: false
         })
     }
     fetchSearchTopStories(searchTerm, page=0){
         console.log("url:", `${PATH_BASE}${PATH_SEARCH}?${PARAM_SEARCH}${searchTerm}&${PARAM_PAGE}${page}&${PARAM_HPP}${DEFAULT_HPP}`)
+        this.setState({isLoading: true});
         fetch(`${PATH_BASE}${PATH_SEARCH}?${PARAM_SEARCH}${searchTerm}&${PARAM_PAGE}${page}&${PARAM_HPP}${DEFAULT_HPP}`)
         .then(response => response.json())
         .then(result => this.setSearchTopStories(result))
@@ -138,11 +116,12 @@ class App extends React.Component {
         })
     }
     render(){
-      const { searchTerm, results, searchKey, error }  = this.state
+      const { isLoading, searchTerm, results, searchKey, error, sortKey, isSortReverse }  = this.state
       const page = (results && results[searchKey] && results[searchKey].page) || 0;
       const list = (results && results[searchKey] && results[searchKey].hits) || [];
       return (
         <div className="page">
+            <InitComponent />
             { error
             ? <div className="interactions">
                 <p>Something went wrong.</p>
@@ -152,9 +131,16 @@ class App extends React.Component {
                 <Table 
                     list={list}
                     onDismiss={this.onDismiss}
+                    sortKey={sortKey}
+                    onSort={this.onSort}
+                    isSortReverse={isSortReverse}
                 />
                 <div className="interactions">
-                    <Button onClick={() => this.fetchSearchTopStories(searchKey, page + 1)}>MORE</Button>
+                    {
+                        isLoading
+                        ? <Loading />
+                        : <Button onClick={() => this.fetchSearchTopStories(searchKey, page + 1)}>MORE</Button>
+                    }
                 </div>
             </div>
             }
