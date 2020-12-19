@@ -1,7 +1,6 @@
-import React, { Component } from 'react';
+import React from 'react';
 import './App.css';
 import './block.css';
-
 
 import Button from './components/Button/index';
 import Search from './components/Search/index';
@@ -9,11 +8,11 @@ import Table from './components/Table/index';
 import { DEFAULT_QUERY,DEFAULT_HPP,PATH_BASE,PATH_SEARCH,PARAM_SEARCH,PARAM_PAGE,PARAM_HPP } from './constants/index.js';
 
 const Loading = () => <div>Loading ...</div>
-const withFoo = (Component) => (props) => <Component { ...props} />
-const withLoading = (Component) => ({ isLoading, ...rest }) => 
-    isLoading
-    ? <Loading />
-    : <Component { ...rest} />
+// const withFoo = (Component) => (props) => <Component { ...props} />
+// const withLoading = (Component) => ({ isLoading, ...rest }) => 
+//     isLoading
+//     ? <Loading />
+//     : <Component { ...rest} />
 
 const withInit = (Component) => (props) => <Component name="withInitName" { ...props} />
 
@@ -28,18 +27,30 @@ class Hello extends React.Component{
     }
 }
 const InitComponent = withInit(Hello);
+
+const updateSearchTopStoriesState = (hits, page) => (prevState) => {
+    const { searchKey, results } = prevState
+    const oldHits = results && results[searchKey] ? results[searchKey].hits : [];
+    const updateHits = [
+        ...oldHits, ...hits
+    ]
+    return {
+        results: {
+            ...results,
+            [searchKey]: {hits: updateHits, page}
+        },
+        isLoading: false
+    }
+}
 class App extends React.Component {
     constructor(props){
         super(props)
         this.state = {
             results: null,
             searchKey: '',
-            result: null,
             searchTerm: DEFAULT_QUERY,
             error: null,
             isLoading: false,
-            sortKey: 'NONE',
-            isSortReverse: false,
         }
         this.setSearchTopStories = this.setSearchTopStories.bind(this)
         this.fetchSearchTopStories = this.fetchSearchTopStories.bind(this)
@@ -47,7 +58,6 @@ class App extends React.Component {
         this.onDismiss = this.onDismiss.bind(this)
         this.onSearchSubmit = this.onSearchSubmit.bind(this)
         this.needsToSearchTopStories = this.needsToSearchTopStories.bind(this)
-        this.onSort = this.onSort.bind(this)
     }
     needsToSearchTopStories(searchTerm){
         return !this.state.results[searchTerm]
@@ -57,25 +67,9 @@ class App extends React.Component {
         this.setState({searchKey: searchTerm})
         this.fetchSearchTopStories(searchTerm)
     }
-    onSort(sortKey){
-        const isSortReverse = this.state.sortKey === sortKey && !this.state.isSortReverse;
-        this.setState({sortKey, isSortReverse});
-    }
     setSearchTopStories(result) {
-        console.log("result:", result)
         const { hits, page } = result
-        const { searchKey, results } = this.state
-        const oldHits = results && results[searchKey] ? results[searchKey].hits : [];
-        const updateHits = [
-            ...oldHits, ...hits
-        ]
-        this.setState({
-            results: {
-                ...results,
-                [searchKey]: {hits: updateHits, page}
-            },
-            isLoading: false
-        })
+        this.setState(updateSearchTopStoriesState(hits, page))
     }
     fetchSearchTopStories(searchTerm, page=0){
         console.log("url:", `${PATH_BASE}${PATH_SEARCH}?${PARAM_SEARCH}${searchTerm}&${PARAM_PAGE}${page}&${PARAM_HPP}${DEFAULT_HPP}`)
@@ -103,7 +97,7 @@ class App extends React.Component {
         // const updateHits = this.state.result.hits.filter(isNotId)
         // hits 覆盖掉了 state.result 里面的hits
         const { searchKey, results } = this.state;
-        const { hits, page } = results[searchKey];
+        const { page } = results[searchKey];
         const updateHits = {hits: this.state.result.hits.filter(item => {
             return item.objectID !== id
         })}
@@ -116,7 +110,7 @@ class App extends React.Component {
         })
     }
     render(){
-      const { isLoading, searchTerm, results, searchKey, error, sortKey, isSortReverse }  = this.state
+      const { isLoading, results, searchKey, error  }  = this.state
       const page = (results && results[searchKey] && results[searchKey].page) || 0;
       const list = (results && results[searchKey] && results[searchKey].hits) || [];
       return (
@@ -131,9 +125,6 @@ class App extends React.Component {
                 <Table 
                     list={list}
                     onDismiss={this.onDismiss}
-                    sortKey={sortKey}
-                    onSort={this.onSort}
-                    isSortReverse={isSortReverse}
                 />
                 <div className="interactions">
                     {
